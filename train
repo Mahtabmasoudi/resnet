@@ -1,0 +1,100 @@
+import numpy as np
+import torch.nn as nn
+import torch.optim as optim
+from model import model
+from dataset import train_loader
+import torch
+import torchvision
+import torch.nn as nn
+from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+from dataset import test_loader
+from torch.optim.lr_scheduler import StepLR
+# from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
+
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+torch.set_printoptions(precision=10)
+
+
+loss_fn2 = nn.CrossEntropyLoss()
+
+
+
+optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=0.0005, momentum=0.9)
+scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
+# writer = SummaryWriter('/home/PycharmProjects/runs')
+writer = SummaryWriter('/home/PycharmProjects/runs')
+
+
+for epoch in range(100):
+    model.train()
+    correct = 0
+    total_data = 0
+    running_loss = 0.0
+    loss_values = []
+    avg_loss_values = []
+    # Decay Learning Rate
+    scheduler.step()
+    # Print Learning Rate
+    print('Epoch:', epoch, 'LR:', scheduler.get_last_lr())
+    for i, data in enumerate(tqdm(train_loader), 0):
+        images, labels = data
+        images = images.to(device)
+        labels = labels.to(device)
+        outputs = model(images)
+        loss = loss_fn2(outputs, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        loss_values.append(loss.item())
+        running_loss += loss.item()
+        correct += (outputs.argmax(1) == labels).type(torch.float).sum().item()
+        total_data += len(data[0])
+        if i % 10 == 9:
+            # Calculating average loss for each 10 batches
+            avg_loss, current = (running_loss/10), i * len(images)
+            print(f"loss: {avg_loss:>7f}  [{current:>5d}/{len(train_loader) * len(images):>5d}]")
+            if len(avg_loss_values) != 0:
+                avg_loss = (avg_loss_values[-1]+avg_loss)/2
+            avg_loss_values.append(avg_loss)
+            running_loss = 0.0
+    # print(f"Accuracy: {(correct / (len(train_loader) * len(images))) * 100}\n")
+    train_accuracy = (correct /total_data) * 100
+    print(f"Accuracy: {train_accuracy}\n")
+
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in tqdm(test_loader):
+            images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
+
+
+            pred = model(images)
+            test_loss += loss_fn2(pred, labels).item()
+            correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
+            total += len(data[0])
+
+        test_accuracy = (100 * (correct / total))
+        print(f"Test Accuracy  {test_accuracy:>5f}")
+        print(f"Average loss value  is {(test_loss/ total):>5f}")
+        print(f"Epoch {epoch + 1}\n-------------------------------")
+
+    train_acc = np.asarray(train_accuracy)
+    test_acc = np.asarray(test_accuracy)
+    writer.add_scalars('Accuracy/train', {'train_acc': train_acc,
+                                         'test_acc': test_acc}, epoch)
+    # writer.add_scalar('Accuracy/test', test_accuracy, epoch)
+    writer.flush()
+
+torch.save(model.state_dict(), "fintuned_model.pth")
+
+
+plt.plot(avg_loss_values)
+#plt.legend()
+plt.show()
