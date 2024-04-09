@@ -1,0 +1,27 @@
+import torch
+from torchvision import transforms, datasets
+from torch.utils.data import DataLoader
+
+# Set your data folder paths
+train_data_folder = '/media/dataset/train'
+test_data_folder = '/media/dataset/test'
+
+# Define data transformations for both training and testing
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),  # Adjust size as needed
+    transforms.ToTensor(),
+])
+
+# Create ImageFolder datasets for train and test
+train_dataset = datasets.ImageFolder(train_data_folder, transform=transform)
+test_dataset = datasets.ImageFolder(test_data_folder, transform=transform)
+
+# Create dataloaders for train and test
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
+test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=4)
+
+# Example: Iterate over the train dataloader
+# for inputs, labels in train_loader:
+#     # Your training code here
+#     print(f"Batch Shape: {inputs.shape}, Labels: {labels}")
+#     break  # Break for demonstration purposes; remove for actual training loop
