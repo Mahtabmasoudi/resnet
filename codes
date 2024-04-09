@@ -1,0 +1,44 @@
+
+import torch
+import torchvision
+import torch.nn as nn
+
+
+
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+model_1 = torchvision.models.resnet50(pretrained=True, progress=True)
+
+
+
+
+
+resnet50_reduced = torch.nn.Sequential(*(list(model_1.children())[:-2]))
+
+
+class my_resnet50(nn.Module):
+    def __init__(self, resnet50_reduced):
+        super(my_resnet50, self).__init__()
+        #super().__init__()
+        self.resnet50_reduced = resnet50_reduced
+        self.my_layers = nn.Sequential(nn.Flatten(),
+                                       nn.Linear(100352, 2048),
+                                       nn.ReLU(),
+                                       nn.Linear(2048, 256),
+                                       nn.ReLU(),
+                                       nn.Linear(256, 64),
+                                       nn.ReLU(),
+                                       nn.Linear(64, 12))
+
+    def forward(self, x):
+        x = self.resnet50_reduced(x)
+        x = self.my_layers(x)
+        return x
+
+
+model = my_resnet50(resnet50_reduced)
+model = model.to(device)
+
+for parameter in model.my_layers.parameters():
+    parameter.requires_grad = False
